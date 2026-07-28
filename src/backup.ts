@@ -2,7 +2,7 @@
 // Claude Code 默认 30 天清理本地 JSONL(settings 里的 cleanupPeriodDays),镜像里的
 // 副本不受影响 —— 原件被清掉后,仪表盘继续从镜像读它,会话和金额都不会凭空少一块。
 // (Codex 不做自动清理,所以这里只镜像 Claude。)
-import { existsSync, mkdirSync, readdirSync, statSync, copyFileSync, utimesSync, rmSync, constants } from "node:fs"
+import { existsSync, mkdirSync, readdirSync, readFileSync, statSync, copyFileSync, utimesSync, rmSync, constants } from "node:fs"
 import { join, dirname } from "node:path"
 import { homedir } from "node:os"
 import { CLAUDE_DIR } from "./claude"
@@ -39,6 +39,33 @@ function walk(dir: string, out: string[] = []): string[] {
     else if (e.endsWith(".jsonl")) out.push(p)
   }
   return out
+}
+
+// ---- 该不该备份 ----
+// 镜像存在的唯一理由是 Claude Code 会按 settings 的 cleanupPeriodDays 清掉本地 JSONL。
+// 把那个值调大的人不需要镜像:原件根本不会消失,再存一份只是白占盘(实测能到 GB 级)。
+// COCKPIT_BACKUP=0 强制关 / =1 强制开,覆盖下面的自动判断。
+const SKIP_ABOVE_DAYS = 90
+
+function cleanupPeriodDays(): number | null {
+  // local 覆盖 user,与 Claude Code 自身的优先级一致
+  for (const f of ["settings.local.json", "settings.json"]) {
+    try {
+      const v = JSON.parse(readFileSync(join(CLAUDE_DIR, f), "utf8"))?.cleanupPeriodDays
+      if (typeof v === "number") return v
+    } catch {}
+  }
+  return null
+}
+
+export function backupPlan(): { run: boolean; why: string } {
+  const forced = process.env.COCKPIT_BACKUP
+  if (forced === "0") return { run: false, why: "COCKPIT_BACKUP=0" }
+  if (forced === "1") return { run: true, why: "COCKPIT_BACKUP=1" }
+  const days = cleanupPeriodDays()
+  if (days === null) return { run: true, why: "cleanupPeriodDays 未设置(Claude Code 默认 30 天清理)" }
+  if (days > SKIP_ABOVE_DAYS) return { run: false, why: `cleanupPeriodDays=${days} > ${SKIP_ABOVE_DAYS},原件不会被清理` }
+  return { run: true, why: `cleanupPeriodDays=${days}` }
 }
 
 export function mirrorPathFor(file: string): string | null {

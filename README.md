@@ -29,6 +29,10 @@ written summary).
   terminals, rename, batch-delete to Trash, reveal in Finder.
 - **Archive** — one click to copy every Claude session into `~/.ai-cockpit/archives/`,
   because Claude Code prunes its own logs after 30 days. Includes an "expiring soon" list.
+  A background mirror keeps that safety net current — but it **turns itself off** if your
+  `cleanupPeriodDays` is above 90 days, since nothing is being pruned and the mirror would
+  just be a second copy of files you already have (easily gigabytes). Force it either way
+  with `COCKPIT_BACKUP=1` / `COCKPIT_BACKUP=0`; the manual archive button always works.
 - **Live system panel** — CPU / memory / battery / network, plus the Claude and Codex
   sessions running right now (click one to focus its terminal).
 - **Menu bar widget** (optional, needs [SwiftBar](https://github.com/swiftbar/SwiftBar)) —
@@ -112,6 +116,7 @@ All optional, all environment variables:
 | `PORT` | `4777` | HTTP port |
 | `COCKPIT_PERSONAL` | unset | `1` enables the browser / Screen Time / IM collectors (see Privacy) |
 | `COCKPIT_DAILY_BUDGET` | `200` | Daily spend in USD; drives the 50% / 80% notifications |
+| `COCKPIT_BACKUP` | auto | `0` / `1` to force the background session mirror off / on. Auto = off when `cleanupPeriodDays` > 90 |
 | `FUSION_LOG_DIR` | `~/.fusion/logs` | Where to look for fusion run logs |
 
 `launchd` does not inherit your shell environment, so for the autostart service these have to

@@ -18,7 +18,7 @@ import {
   APP_DIR,
   shortPath,
 } from "./src/store"
-import { runBackup, backupState, isBackedUp } from "./src/backup"
+import { runBackup, backupState, isBackedUp, backupPlan } from "./src/backup"
 import { buildOverview, type Range } from "./src/stats"
 import { historySessions, earliestClaudeDay } from "./src/history"
 import { loadClaudeSession, listClaudeFiles, CLAUDE_DIR } from "./src/claude"
@@ -47,15 +47,21 @@ const PORT = Number(process.env.PORT || 4777)
 mkdirSync(APP_DIR, { recursive: true })
 startSampling()
 
-// 自动备份:起来 20 秒后跑一次,之后每 6 小时一次(增量,只增不删;30 天清理窗口绰绰有余)
-setTimeout(() => {
-  runBackup()
-    .then((s) => console.log(`📦 auto-backup: +${s.copied} → ${s.files} files (${(s.bytes / 2 ** 20).toFixed(0)} MB, ${s.ms}ms)`))
-    .catch(() => {})
-}, 20_000)
-setInterval(() => {
-  runBackup().catch(() => {})
-}, 6 * 3600 * 1000)
+// 自动备份:起来 20 秒后跑一次,之后每 6 小时一次(增量,只增不删;30 天清理窗口绰绰有余)。
+// 原件不会被清理的机器直接跳过 —— 判据见 backupPlan()。手动"立即备份"按钮不受影响。
+const backup = backupPlan()
+if (backup.run) {
+  setTimeout(() => {
+    runBackup()
+      .then((s) => console.log(`📦 auto-backup: +${s.copied} → ${s.files} files (${(s.bytes / 2 ** 20).toFixed(0)} MB, ${s.ms}ms)`))
+      .catch(() => {})
+  }, 20_000)
+  setInterval(() => {
+    runBackup().catch(() => {})
+  }, 6 * 3600 * 1000)
+} else {
+  console.log(`📦 auto-backup: 已跳过(${backup.why})。需要时可手动备份,或设 COCKPIT_BACKUP=1 强制开启`)
+}
 
 // harvest historical /fusion runs from Claude logs (idempotent, background)
 mineHistoricalFusion(listClaudeFiles())
