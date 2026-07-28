@@ -114,6 +114,22 @@ All optional, all environment variables:
 | `COCKPIT_DAILY_BUDGET` | `200` | Daily spend in USD; drives the 50% / 80% notifications |
 | `FUSION_LOG_DIR` | `~/.fusion/logs` | Where to look for fusion run logs |
 
+`launchd` does not inherit your shell environment, so for the autostart service these have to
+be baked into the plist. `install-autostart.sh` passes through whichever of the four are set
+when you run it — re-run it with new values to change the configuration, or with none to
+reset everything to defaults:
+
+```bash
+COCKPIT_PERSONAL=1 COCKPIT_DAILY_BUDGET=50 ./install-autostart.sh
+```
+
+⚠️ **Full Disk Access is per-binary, and re-signing revokes it.** The LaunchAgent runs
+`/Applications/AI Cockpit.app/Contents/MacOS/ai-cockpit-server` directly, so that binary —
+not just the `.app` — is what needs FDA in System Settings → Privacy & Security. Since
+`build-app.sh` ad-hoc re-signs on every build, a rebuild can invalidate an existing grant. If
+`COCKPIT_PERSONAL=1` is set but browsing and Screen Time come back empty (`fdaMissing: true`
+on `/api/personal`), that is what happened.
+
 Files it writes, all under `~/.ai-cockpit/`:
 
 | File | Purpose |

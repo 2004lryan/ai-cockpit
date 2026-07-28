@@ -15,6 +15,19 @@ else
   PROG="<string>$BUN</string><string>run</string><string>$DIR/server.ts</string>"
 fi
 
+# launchd 不继承你的 shell 环境,所以配置只能写死进 plist。这里把安装时设置的
+# Cockpit 变量透传进去,例如:  COCKPIT_PERSONAL=1 ./install-autostart.sh
+# 想改配置就带着新值重跑本脚本;不带任何变量重跑 = 全部回到默认值。
+EXTRA_ENV=""
+for v in COCKPIT_PERSONAL COCKPIT_DAILY_BUDGET PORT FUSION_LOG_DIR; do
+  eval "val=\${$v-}"
+  if [ -n "$val" ]; then
+    EXTRA_ENV="$EXTRA_ENV
+    <key>$v</key><string>$val</string>"
+    echo "▸ 透传 $v=$val"
+  fi
+done
+
 cat > "$PLIST" <<EOF
 <?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
@@ -27,7 +40,7 @@ cat > "$PLIST" <<EOF
   </array>
   <key>EnvironmentVariables</key>
   <dict>
-    <key>PATH</key><string>$HOME/.local/bin:$HOME/.npm-global/bin:/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin</string>
+    <key>PATH</key><string>$HOME/.local/bin:$HOME/.npm-global/bin:/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin</string>$EXTRA_ENV
   </dict>
   <key>RunAtLoad</key><true/>
   <key>KeepAlive</key><true/>
