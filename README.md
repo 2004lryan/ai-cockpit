@@ -128,12 +128,31 @@ reset everything to defaults:
 COCKPIT_PERSONAL=1 COCKPIT_DAILY_BUDGET=50 ./install-autostart.sh
 ```
 
-⚠️ **Full Disk Access is per-binary, and re-signing revokes it.** The LaunchAgent runs
-`/Applications/AI Cockpit.app/Contents/MacOS/ai-cockpit-server` directly, so that binary —
-not just the `.app` — is what needs FDA in System Settings → Privacy & Security. Since
-`build-app.sh` ad-hoc re-signs on every build, a rebuild can invalidate an existing grant. If
-`COCKPIT_PERSONAL=1` is set but browsing and Screen Time come back empty (`fdaMissing: true`
-on `/api/personal`), that is what happened.
+`COCKPIT_FROM_SOURCE=1` is also honoured here — it makes the LaunchAgent run `server.ts`
+through `bun` instead of the compiled binary. See the Full Disk Access note under Privacy for
+why you would want that.
+
+⚠️ **If you want the personal-context collectors under the autostart service, install it in
+source mode.** macOS will not honour a Full Disk Access grant for an **ad-hoc signed** binary
+started by `launchd`, and `build-app.sh` can only ad-hoc sign (a real Developer ID costs $99/yr).
+The symptom is confusing: run the compiled binary from a terminal that has FDA and it reads
+everything; let `launchd` start the *same* binary and `/api/personal` returns
+`fdaMissing: true` with zeroes — because in the first case the responsible process is the
+terminal, in the second it is the unsigned binary itself. Adding the binary to the FDA list
+does not fix it.
+
+The way out is to run the source through `bun`, which ships a real Developer ID signature that
+TCC accepts:
+
+```bash
+COCKPIT_PERSONAL=1 COCKPIT_FROM_SOURCE=1 ./install-autostart.sh
+```
+
+Then grant Full Disk Access to **bun itself** — and to the real file, not the symlink
+(`readlink -f "$(command -v bun)"`, typically `.../node_modules/bun/bin/bun.exe`); TCC follows
+the target, not the link. Two consequences worth knowing: the grant now applies to *every*
+script you run with bun, and code changes take effect with a plain restart
+(`launchctl kickstart -k gui/$(id -u)/app.aicockpit.server`) instead of a rebuild.
 
 Files it writes, all under `~/.ai-cockpit/`:
 

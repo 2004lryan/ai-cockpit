@@ -8,11 +8,19 @@ BIN="/Applications/AI Cockpit.app/Contents/MacOS/ai-cockpit-server"
 PLIST=~/Library/LaunchAgents/app.aicockpit.server.plist
 mkdir -p ~/Library/LaunchAgents
 
-if [ -x "$BIN" ]; then
+# COCKPIT_FROM_SOURCE=1 强制用 bun 跑源码,不用打包好的二进制。
+# 为什么会需要它:build-app.sh 产出的是 ad-hoc 临时签名,而 macOS 不给「临时签名
+# + launchd 启动」的进程认完全磁盘访问 —— 表现为个人上下文采集器在自启服务里永远
+# 读不到东西(从终端手跑却正常,因为那时的责任进程是终端)。改用 bun(正式开发者
+# 签名)跑源码、把 FDA 授给 bun 本体即可,且此后改代码不会再让授权失效。
+if [ -x "$BIN" ] && [ "${COCKPIT_FROM_SOURCE:-}" != "1" ]; then
   PROG="<string>$BIN</string>"
+  echo "▸ 运行方式:打包二进制 $BIN"
 else
   BUN="$(command -v bun || echo /usr/local/bin/bun)"
+  BUN="$(readlink -f "$BUN" 2>/dev/null || echo "$BUN")"  # TCC 认真实文件,不认软链
   PROG="<string>$BUN</string><string>run</string><string>$DIR/server.ts</string>"
+  echo "▸ 运行方式:源码 $BUN run $DIR/server.ts"
 fi
 
 # launchd 不继承你的 shell 环境,所以配置只能写死进 plist。这里把安装时设置的
